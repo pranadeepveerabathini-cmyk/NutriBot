@@ -1,0 +1,218 @@
+/* ═══════════════════════════════════════════════════════
+   NutriBot — Auth Pages Stylesheet
+   ═══════════════════════════════════════════════════════ */
+
+.auth-body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 40%, #7c3aed 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: var(--font);
+}
+
+.auth-wrapper {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.auth-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px 36px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+
+/* Logo */
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.auth-logo-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.auth-logo .brand-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #2563eb;
+}
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  font-size: .88rem;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+/* Input group */
+.input-group-auth {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-group-auth > i {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  font-size: .9rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-group-auth .form-control {
+  padding-left: 36px;
+  padding-right: 40px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  font-size: .9rem;
+  height: 44px;
+  background: #f8fafc;
+  color: #0f172a;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.input-group-auth .form-control:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  background: #fff;
+  outline: none;
+}
+
+.toggle-pw {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  z-index: 2;
+  font-size: .9rem;
+  transition: color .2s;
+}
+
+.toggle-pw:hover { color: #2563eb; }
+
+/* Auth button */
+.btn-auth {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-weight: 600;
+  font-size: .95rem;
+  height: 46px;
+  border-radius: 10px;
+  border: none;
+  transition: opacity .2s, transform .2s;
+}
+
+.btn-auth:hover {
+  opacity: .92;
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+/* Divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #cbd5e1;
+  font-size: .8rem;
+  margin: 20px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+/* Switch link */
+.auth-switch {
+  text-align: center;
+  font-size: .88rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.auth-switch a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-switch a:hover { text-decoration: underline; }
+
+/* Plan perks */
+.plan-perks {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.perks-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: .78rem;
+  color: #475569;
+}
+
+/* Footer note */
+.auth-footer-note {
+  font-size: .72rem;
+  color: rgba(255,255,255,.7);
+  text-align: center;
+  max-width: 380px;
+  margin: 0;
+}
+
+/* Flash alerts */
+.alert {
+  border-radius: 8px;
+  font-size: .85rem;
+  margin-bottom: 16px;
+}
+
+/* Google button */
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #3c4043;
+  border: 1.5px solid #dadce0;
+  border-radius: 10px;
+  height: 46px;
+  font-weight: 600;
+  font-size: .9rem;
+  transition: background .2s, box-shadow .2s;
+  text-decoration: none;
+}
+
+.btn-google:hover {
+  background: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  color: #3c4043;
+}

@@ -1,14 +1,12 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
-║        NutritionAgent — IBM Watsonx.ai (Granite) Core           ║
+║        NutritionAgent — Multi-provider AI Core                   ║
+║        Primary: Google Gemini                                    ║
+║        Fallback: Groq (Llama)                                    ║
+║        Last resort: Demo mode                                    ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-Edit the  AGENT_INSTRUCTIONS  block below to customise:
-  • Tone and personality
-  • Diet specialisation (vegan, keto, Indian, diabetic…)
-  • Safety & medical disclaimers
-  • Preferred foods / cuisines
-  • Response length / format
+Edit AGENT_INSTRUCTIONS to customise NutriBot's behaviour.
 """
 
 import os
@@ -22,7 +20,7 @@ logger = logging.getLogger(__name__)
 #  AGENT INSTRUCTIONS — Customise behaviour here
 # ══════════════════════════════════════════════════════════════════
 AGENT_INSTRUCTIONS = """
-You are NutriBot, an expert AI nutritionist and wellness coach powered by IBM Watsonx.ai.
+You are NutriBot, an expert AI nutritionist and wellness coach.
 
 ## PERSONA & TONE
 - Warm, encouraging, and professional — like a trusted nutritionist friend.
@@ -75,118 +73,120 @@ You are NutriBot, an expert AI nutritionist and wellness coach powered by IBM Wa
 
 
 class NutritionAgent:
-    """Wraps IBM Watsonx.ai (Granite) for nutrition-focused conversations."""
+    """
+    Multi-provider AI agent.
+    Primary  → Google Gemini (gemini-1.5-flash)
+    Fallback → Groq (llama-3.1-70b-versatile)
+    Demo     → Static responses when both are unavailable
+    """
 
-    # Default model — granite-13b-chat-v2 is optimised for dialogue
-    model_id: str = "ibm/granite-13b-chat-v2"
-
-    # Generation parameters — tune as needed
-    GENERATE_PARAMS = {
-        "decoding_method": "greedy",
-        "max_new_tokens": 1024,
-        "min_new_tokens": 50,
-        "stop_sequences": ["<|endoftext|>"],
-        "repetition_penalty": 1.1,
-        "temperature": 0.7,
-    }
+    model_id = "gemini-1.5-flash"  # displayed in /api/health/status
 
     def __init__(self):
-        self.api_key = os.getenv("IBM_API_KEY")
-        self.project_id = os.getenv("IBM_PROJECT_ID")
-        self.watsonx_url = os.getenv("IBM_WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+        self.gemini_key = os.getenv("GEMINI_API_KEY")
+        self.groq_key   = os.getenv("GROQ_API_KEY")
 
-        if not self.api_key or not self.project_id:
-            raise EnvironmentError(
-                "IBM_API_KEY and IBM_PROJECT_ID must be set in the .env file."
-            )
+        self._gemini_client = None
+        self._groq_client   = None
 
-        self._model = None
-        logger.info("NutritionAgent initialised (model: %s)", self.model_id)
+        if not self.gemini_key and not self.groq_key:
+            logger.warning("No AI API keys found — running in demo mode.")
+        else:
+            if self.gemini_key:
+                logger.info("NutritionAgent: Gemini primary ready.")
+            if self.groq_key:
+                logger.info("NutritionAgent: Groq fallback ready.")
 
     # ──────────────────────────────────────────────────────────────
-    # Lazy model initialisation
+    # Lazy clients
     # ──────────────────────────────────────────────────────────────
-    def _get_model(self):
-        if self._model is not None:
-            return self._model
-
+    def _get_gemini(self):
+        if self._gemini_client is not None:
+            return self._gemini_client
+        if not self.gemini_key:
+            return None
         try:
-            from ibm_watsonx_ai import Credentials
-            from ibm_watsonx_ai.foundation_models import ModelInference
-            from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
+            from google import genai
+            self._gemini_client = genai.Client(api_key=self.gemini_key)
+            logger.info("Gemini client initialised.")
+            return self._gemini_client
+        except Exception as e:
+            logger.error("Gemini init failed: %s", e)
+            return None
 
-            credentials = Credentials(
-                url=self.watsonx_url,
-                api_key=self.api_key,
-            )
-
-            self._model = ModelInference(
-                model_id=self.model_id,
-                credentials=credentials,
-                project_id=self.project_id,
-                params=self.GENERATE_PARAMS,
-            )
-            logger.info("Watsonx ModelInference ready.")
-        except ImportError:
-            logger.warning("ibm-watsonx-ai not installed — using mock responses.")
-            self._model = "mock"
-        except Exception as exc:
-            logger.error("Failed to init Watsonx model: %s", exc)
-            self._model = "mock"
-
-        return self._model
+    def _get_groq(self):
+        if self._groq_client is not None:
+            return self._groq_client
+        if not self.groq_key:
+            return None
+        try:
+            from groq import Groq
+            self._groq_client = Groq(api_key=self.groq_key)
+            logger.info("Groq client initialised.")
+            return self._groq_client
+        except Exception as e:
+            logger.error("Groq init failed: %s", e)
+            return None
 
     # ──────────────────────────────────────────────────────────────
-    # Core generation
+    # Core generation — Gemini → Groq → Demo
     # ──────────────────────────────────────────────────────────────
     def _generate(self, prompt: str) -> str:
-        model = self._get_model()
+        # 1️⃣ Try Gemini
+        gemini = self._get_gemini()
+        if gemini:
+            try:
+                response = gemini.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=AGENT_INSTRUCTIONS + "\n\n" + prompt,
+                )
+                return response.text.strip()
+            except Exception as e:
+                logger.warning("Gemini failed, trying Groq: %s", e)
 
-        if model == "mock":
-            return self._mock_response(prompt)
+        # 2️⃣ Try Groq
+        groq = self._get_groq()
+        if groq:
+            try:
+                completion = groq.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": AGENT_INSTRUCTIONS},
+                        {"role": "user",   "content": prompt},
+                    ],
+                    max_tokens=1024,
+                    temperature=0.7,
+                )
+                return completion.choices[0].message.content.strip()
+            except Exception as e:
+                logger.warning("Groq failed, using demo: %s", e)
 
-        try:
-            response = model.generate_text(prompt=prompt)
-            return response.strip()
-        except Exception as exc:
-            logger.error("Generation error: %s", exc)
-            return self._mock_response(prompt)
+        # 3️⃣ Demo fallback
+        return self._demo_response(prompt)
 
     # ──────────────────────────────────────────────────────────────
     # Public API
     # ──────────────────────────────────────────────────────────────
     def chat(self, user_message: str, history: list, context: dict = None) -> str:
-        """Multi-turn conversation handler."""
-        history_text = self._format_history(history[-10:])  # last 5 turns
-        context_text = self._format_context(context or {})
+        context_text  = self._format_context(context or {})
+        history_text  = self._format_history(history[-10:])
 
-        full_prompt = (
-            f"{AGENT_INSTRUCTIONS}\n\n"
-            f"{'### User Context\\n' + context_text + chr(10) if context_text else ''}"
-            f"{'### Conversation History\\n' + history_text + chr(10) if history_text else ''}"
+        prompt = (
+            f"{'### User Context\n' + context_text + chr(10) if context_text else ''}"
+            f"{'### Conversation History\n' + history_text + chr(10) if history_text else ''}"
             f"### User: {user_message}\n"
             f"### NutriBot:"
         )
-
-        return self._generate(full_prompt)
+        return self._generate(prompt)
 
     def analyze(self, prompt: str) -> str:
-        """Single-turn nutritional analysis."""
-        full_prompt = (
-            f"{AGENT_INSTRUCTIONS}\n\n"
-            f"### Task: {prompt}\n"
-            f"### NutriBot:"
-        )
-        return self._generate(full_prompt)
+        return self._generate(f"### Task: {prompt}\n### NutriBot:")
 
     def generate_plan(self, prompt: str) -> str:
-        """Generate a structured meal / nutrition plan."""
-        full_prompt = (
-            f"{AGENT_INSTRUCTIONS}\n\n"
+        return self._generate(
             f"### Generate a detailed plan for: {prompt}\n"
             f"### NutriBot (provide a well-structured plan with headings):"
         )
-        return self._generate(full_prompt)
 
     # ──────────────────────────────────────────────────────────────
     # Helpers
@@ -203,45 +203,37 @@ class NutritionAgent:
     def _format_context(context: dict) -> str:
         if not context:
             return ""
-        parts = []
-        for key, val in context.items():
-            parts.append(f"  {key}: {val}")
-        return "\n".join(parts)
+        return "\n".join(f"  {k}: {v}" for k, v in context.items() if v)
 
     @staticmethod
-    def _mock_response(prompt: str) -> str:
-        """Fallback when Watsonx is unavailable (dev/demo mode)."""
+    def _demo_response(prompt: str) -> str:
         lp = prompt.lower()
         if "meal plan" in lp or "generate a detailed plan" in lp:
             return (
-                "**7-Day Indian Meal Plan (Demo — connect IBM Watsonx for real plans)**\n\n"
+                "**7-Day Indian Meal Plan (Demo Mode)**\n\n"
                 "**Day 1**\n"
                 "- 🌅 Breakfast: Oats upma with vegetables (320 kcal)\n"
                 "- ☀️ Lunch: Dal tadka + 2 rotis + cucumber raita (480 kcal)\n"
                 "- 🌙 Dinner: Palak paneer + brown rice + salad (520 kcal)\n"
                 "- 🍎 Snacks: Handful of almonds + 1 banana (210 kcal)\n\n"
                 "**Total: ~1530 kcal** ✅\n\n"
-                "⚠️ This is a demo response. Connect your IBM Watsonx API key for personalised plans."
+                "⚠️ Demo mode — add GEMINI_API_KEY or GROQ_API_KEY to .env for real AI plans."
             )
         if "bmi" in lp:
             return (
                 "**BMI Analysis (Demo)**\n\n"
-                "Based on your metrics, here are key recommendations:\n"
                 "- ✅ Include protein at every meal (dal, paneer, eggs, legumes)\n"
                 "- ✅ Aim for 5 servings of vegetables and 2 fruits daily\n"
-                "- ✅ Stay hydrated: 8–10 glasses of water\n"
-                "- ✅ Limit processed foods, refined sugar, and fried snacks\n\n"
+                "- ✅ Stay hydrated: 8–10 glasses of water\n\n"
                 "⚠️ Consult a registered dietitian before making significant dietary changes."
             )
         return (
             "**NutriBot (Demo Mode)**\n\n"
-            "Hello! I'm NutriBot, your AI nutrition assistant powered by IBM Watsonx.ai. 🥗\n\n"
+            "I'm NutriBot, your AI nutrition assistant. 🥗\n\n"
             "I can help you with:\n"
-            "- ✅ Personalised meal plans (Indian & international)\n"
+            "- ✅ Personalised meal plans\n"
             "- ✅ Calorie and nutrition analysis\n"
-            "- ✅ BMI calculation and weight management tips\n"
-            "- ✅ Family diet planning\n"
-            "- ✅ Healthy recipe suggestions\n\n"
-            "Ask me anything about nutrition!\n\n"
-            "⚠️ Currently in demo mode. Connect IBM Watsonx API key for full AI responses."
+            "- ✅ BMI calculation and weight management\n"
+            "- ✅ Family diet planning\n\n"
+            "⚠️ Add GEMINI_API_KEY or GROQ_API_KEY to .env for full AI responses."
         )

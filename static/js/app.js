@@ -27,6 +27,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initFamilySection();
   showSection("chat");
   checkAgentStatus();
+  loadUsageBar();
+  loadProfileFromDB();
+  loadChatHistoryFromDB();
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -149,10 +152,14 @@ async function sendMessage() {
     showTypingIndicator(false);
     setSendDisabled(false);
 
-    if (data.error) {
+    if (data.error === "limit_reached") {
+      appendMessage("bot", `⚠️ **Usage limit reached**\n\n${data.message}`);
+      showToast("Monthly limit reached. Upgrade your plan!", "error");
+    } else if (data.error) {
       appendMessage("bot", `❌ Error: ${data.error}`);
     } else {
       appendMessage("bot", data.response, data.timestamp);
+      loadUsageBar();
     }
   } catch (err) {
     showTypingIndicator(false);
@@ -536,4 +543,59 @@ function showToast(message, type = "info") {
   toast.textContent = message;
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 4000);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Usage bar (navbar dropdown)
+// ─────────────────────────────────────────────────────────────────
+async function loadUsageBar() {
+  try {
+    const res  = await fetch("/api/usage");
+    if (!res.ok) return;
+    const data = await res.json();
+    const pct  = Math.min(Math.round((data.chats_used / data.chats_limit) * 100), 100);
+    const countEl = document.getElementById("navChatCount");
+    const barEl   = document.getElementById("navChatBar");
+    if (countEl) countEl.textContent = `${data.chats_used} / ${data.chats_limit}`;
+    if (barEl)   barEl.style.width   = pct + "%";
+  } catch (_) {}
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Load profile from DB into sidebar fields
+// ─────────────────────────────────────────────────────────────────
+async function loadProfileFromDB() {
+  try {
+    const res  = await fetch("/api/profile");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.age)    document.getElementById("profileAge").value    = data.age;
+    if (data.gender) document.getElementById("profileGender").value = data.gender;
+    if (data.weight_kg) document.getElementById("profileWeight").value = data.weight_kg;
+    if (data.height_cm) document.getElementById("profileHeight").value = data.height_cm;
+    if (data.goal)   document.getElementById("profileGoal").value   = data.goal;
+    if (data.diet)   document.getElementById("profileDiet").value   = data.diet;
+  } catch (_) {}
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Load chat history from DB on page load
+// ─────────────────────────────────────────────────────────────────
+async function loadChatHistoryFromDB() {
+  try {
+    const res  = await fetch("/api/chat/history");
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!rows.length) return;
+
+    // Clear welcome screen
+    const chatWindow = document.getElementById("chatWindow");
+    const welcome    = chatWindow.querySelector(".chat-welcome");
+    if (welcome) welcome.remove();
+
+    rows.forEach(r => appendMessage(r.role === "user" ? "user" : "bot", r.content, r.timestamp));
+
+    // Scroll to bottom
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  } catch (_) {}
 }

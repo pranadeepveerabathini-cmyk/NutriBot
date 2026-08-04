@@ -476,11 +476,13 @@ body {
 
 .message-bubble {
   max-width: 75%;
-  padding: 12px 16px;
+  min-width: 48px;
+  padding: 10px 16px;
   border-radius: 16px;
   font-size: .88rem;
   line-height: 1.65;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .message-bubble.bot {
@@ -878,3 +880,52 @@ body {
   .chat-layout { height: auto; }
   .chat-window { height: 60vh; }
 }
+
+/* ══════════════════════════════════════════════════════
+   USER MENU (navbar avatar + dropdown)
+══════════════════════════════════════════════════════ */
+.user-menu-btn {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: 30px;
+  padding: .3rem .7rem;
+  color: var(--text);
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.user-menu-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.user-avatar-sm {
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  border-radius: 50%;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dropdown-menu {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 210px;
+  background: var(--surface);
+}
+
+.dropdown-item {
+  color: var(--text);
+  font-size: .85rem;
+  padding: .5rem 1rem;
+  transition: background var(--transition);
+}
+
+.dropdown-item:hover { background: var(--surface-2); color: var(--text); }
+.dropdown-item.text-danger:hover { background: var(--danger-light); }
