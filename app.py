@@ -377,6 +377,7 @@ def admin_dashboard():
         "admin.html",
         users=users,
         admin=current_user
+   
     )
 
 # ─────────────────────────────────────────────────────────────────
