@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NutriBot Admin</title>
+</head>
+<body>
+
+<h1>NutriBot Admin Dashboard</h1>
+
+<h2>Total Users: {{ users|length }}</h2>
+
+<table border="1">
+<tr>
+    <th>ID</th>
+    <th>Name</th>
+    <th>Email</th>
+    <th>Plan</th>
+</tr>
+
+{% for user in users %}
+<tr>
+    <td>{{ user.id }}</td>
+    <td>{{ user.name }}</td>
+    <td>{{ user.email }}</td>
+    <td>{{ user.plan }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</body>
+</html>

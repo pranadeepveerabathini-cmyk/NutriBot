@@ -27,6 +27,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+ADMIN_EMAIL    = "pranadeepveerabathini@gmail.com"
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-prod")
@@ -364,7 +365,19 @@ def health_status():
 @login_required
 def usage():
     return jsonify(current_user.usage_summary())
+@app.route("/admin")
+@login_required
+def admin_dashboard():
+    if current_user.email != ADMIN_EMAIL:
+        return "Not Found", 404
 
+    users = User.query.order_by(User.created_at.desc()).all()
+
+    return render_template(
+        "admin.html",
+        users=users,
+        admin=current_user
+    )
 
 # ─────────────────────────────────────────────────────────────────
 # Entry point
