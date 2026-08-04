@@ -271,7 +271,7 @@ def reset_password(token):
 # ══════════════════════════════════════════════════════════════════
 @auth.route("/login/google")
 def google_login():
-    redirect_uri = url_for("auth.google_callback", _external=True)
+    redirect_uri = url_for("auth.google_callback", _external=True,_scheme="https")
     return google.authorize_redirect(redirect_uri)
 
 
