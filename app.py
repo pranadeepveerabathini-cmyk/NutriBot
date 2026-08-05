@@ -98,7 +98,12 @@ def account():
         meal_plans=meal_plans,
         bmi_records=bmi_records,
         usage=usage,
-    )
+    )  
+
+@app.route("/pricing")
+@login_required
+def pricing():
+    return render_template("pricing.html")
 
 
 # ─────────────────────────────────────────────────────────────────
