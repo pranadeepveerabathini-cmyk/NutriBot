@@ -69,9 +69,27 @@ limiter = Limiter(
 oauth.init_app(app)
 app.register_blueprint(auth_blueprint)
 
-# ── Create tables ─────────────────────────────────────────────────
+# ── Create tables & Auto-migrate ───────────────────────────────────
 with app.app_context():
     db.create_all()
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            with db.engine.begin() as conn:
+                if "is_admin" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+                if "stripe_customer_id" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(120)"))
+                if "stripe_subscription_id" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(120)"))
+                if "subscription_status" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN subscription_status VARCHAR(30) DEFAULT 'inactive'"))
+                if "subscription_end_date" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN subscription_end_date DATETIME"))
+    except Exception as e:
+        logger.warning("Auto-migration notice: %s", e)
     logger.info("Database tables ready.")
 
 # ── Agent ─────────────────────────────────────────────────────────
