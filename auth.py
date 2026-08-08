@@ -271,7 +271,11 @@ def reset_password(token):
 # ══════════════════════════════════════════════════════════════════
 @auth.route("/login/google")
 def google_login():
-    redirect_uri = url_for("auth.google_callback", _external=True,_scheme="https")
+    # Detect scheme dynamically (http for local dev, https for production behind SSL proxy)
+    scheme = "https" if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https" else "http"
+    if scheme == "http":
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+    redirect_uri = url_for("auth.google_callback", _external=True, _scheme=scheme)
     return google.authorize_redirect(redirect_uri)
 
 
