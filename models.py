@@ -18,6 +18,7 @@ class User(UserMixin, db.Model):
     email         = db.Column(db.String(200), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=True)   # nullable for Google users
     plan          = db.Column(db.String(20), default="free")   # free | pro | family
+    is_admin      = db.Column(db.Boolean, default=False)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
     # ── Email verification ────────────────────────────────────────
@@ -33,6 +34,12 @@ class User(UserMixin, db.Model):
     reset_token     = db.Column(db.String(200), nullable=True)
     reset_expires   = db.Column(db.DateTime, nullable=True)
 
+    # ── Stripe Subscription ──────────────────────────────────────
+    stripe_customer_id     = db.Column(db.String(120), nullable=True)
+    stripe_subscription_id = db.Column(db.String(120), nullable=True)
+    subscription_status    = db.Column(db.String(30), default="inactive")
+    subscription_end_date  = db.Column(db.DateTime, nullable=True)
+
     # usage counters (reset monthly — simple approach)
     chats_this_month     = db.Column(db.Integer, default=0)
     plans_this_month     = db.Column(db.Integer, default=0)
@@ -43,6 +50,7 @@ class User(UserMixin, db.Model):
     chat_history = db.relationship("ChatHistory", backref="user", cascade="all, delete-orphan", order_by="ChatHistory.timestamp")
     meal_plans   = db.relationship("MealPlan",    backref="user", cascade="all, delete-orphan", order_by="MealPlan.created_at.desc()")
     bmi_records  = db.relationship("BMIRecord",   backref="user", cascade="all, delete-orphan", order_by="BMIRecord.created_at.desc()")
+    daily_logs   = db.relationship("DailyLog",    backref="user", cascade="all, delete-orphan", order_by="DailyLog.created_at.desc()")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -169,3 +177,18 @@ class UserMemory(db.Model):
     )
 
     user = db.relationship("User", backref="memories")
+
+
+class DailyLog(db.Model):
+    __tablename__ = "daily_logs"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    date       = db.Column(db.String(10), nullable=False) # YYYY-MM-DD
+    meal_type  = db.Column(db.String(30), nullable=False) # breakfast, lunch, dinner, snack
+    meal_name  = db.Column(db.String(200), nullable=False)
+    calories   = db.Column(db.Integer, default=0)
+    protein_g  = db.Column(db.Float, default=0.0)
+    carbs_g    = db.Column(db.Float, default=0.0)
+    fat_g      = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

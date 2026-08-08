@@ -157,9 +157,13 @@
             <span></span><span></span><span></span>
             <small>NutriBot is thinking…</small>
           </div>
-          <div class="input-row">
-            <textarea id="chatInput" class="chat-textarea" placeholder="Ask about nutrition, recipes, diet plans…" rows="1"></textarea>
-            <button class="btn btn-send" id="sendBtn" onclick="sendMessage()">
+          <div class="input-row align-items-center">
+            <label for="imageScanInput" class="btn btn-outline-secondary btn-sm me-1 py-2 px-3 rounded-3" title="Upload Meal Photo (AI Food Scanner)" style="cursor:pointer;">
+              <i class="bi bi-camera-fill text-primary"></i>
+            </label>
+            <input type="file" id="imageScanInput" accept="image/*" style="display:none;" onchange="uploadFoodPhoto(this)">
+            <textarea id="chatInput" class="chat-textarea" placeholder="Ask about nutrition, recipes, or upload a meal photo…" rows="1"></textarea>
+            <button class="btn btn-send ms-1" id="sendBtn" onclick="sendMessage()">
               <i class="bi bi-send-fill"></i>
             </button>
           </div>

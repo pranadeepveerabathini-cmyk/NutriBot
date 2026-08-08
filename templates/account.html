@@ -208,7 +208,12 @@
                   Meal Plan
                 {% endif %}
               </span>
-              <span class="small text-muted">{{ plan.created_at.strftime('%d %b %Y') }}</span>
+              <div class="d-flex align-items-center gap-2">
+                <a href="/api/mealplan/{{ plan.id }}/export-pdf" class="btn btn-xs btn-outline-primary py-1 px-2" style="font-size: 0.75rem;" title="Download PDF">
+                  <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                </a>
+                <span class="small text-muted">{{ plan.created_at.strftime('%d %b %Y') }}</span>
+              </div>
             </div>
             <div class="result-box" style="max-height:200px;overflow-y:auto;font-size:.8rem;">{{ plan.plan_text[:600] }}{% if plan.plan_text|length > 600 %}…{% endif %}</div>
           </div>

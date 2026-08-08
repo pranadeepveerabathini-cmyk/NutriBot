@@ -8,14 +8,18 @@
 import os
 import logging
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, send_file
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
-from models import db, User, Profile, ChatHistory, MealPlan, BMIRecord
+from models import db, User, Profile, ChatHistory, MealPlan, BMIRecord, UserMemory, DailyLog
 from agent import NutritionAgent
 from auth import auth as auth_blueprint, oauth
+from pdf_generator import generate_meal_plan_pdf
+import billing
 
 # ─────────────────────────────────────────────────────────────────
 # Boot
@@ -54,8 +58,14 @@ app.config["SECRET_KEY"] = app.secret_key
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# ── CORS + Blueprints ─────────────────────────────────────────────
+# ── CORS + Blueprints + Rate Limiter ──────────────────────────────
 CORS(app)
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
 oauth.init_app(app)
 app.register_blueprint(auth_blueprint)
 
@@ -370,20 +380,210 @@ def health_status():
 @login_required
 def usage():
     return jsonify(current_user.usage_summary())
+
+
+# ─────────────────────────────────────────────────────────────────
+# Routes — Onboarding
+# ─────────────────────────────────────────────────────────────────
+@app.route("/onboarding")
+@login_required
+def onboarding():
+    return render_template("onboarding.html")
+
+
+@app.route("/api/onboarding/complete", methods=["POST"])
+@login_required
+def onboarding_complete():
+    data = request.get_json(silent=True) or {}
+    profile = current_user.profile
+    if not profile:
+        profile = Profile(user_id=current_user.id)
+        db.session.add(profile)
+
+    profile.age       = int(data.get("age", 28))
+    profile.gender    = data.get("gender", "male")
+    profile.height_cm = float(data.get("height_cm", 170))
+    profile.weight_kg = float(data.get("weight_kg", 70))
+    profile.goal      = data.get("goal", "Weight Loss")
+    profile.diet      = data.get("diet", "Vegetarian")
+    db.session.commit()
+    return jsonify({"status": "success", "redirect": "/app"})
+
+
+# ─────────────────────────────────────────────────────────────────
+# Routes — Multimodal Food Photo Scanner
+# ─────────────────────────────────────────────────────────────────
+@app.route("/api/nutrition/analyze-image", methods=["POST"])
+@login_required
+@limiter.limit("15 per hour")
+def analyze_image_nutrition():
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+
+    file = request.files["image"]
+    if not file or file.filename == "":
+        return jsonify({"error": "Empty image file"}), 400
+
+    try:
+        image_bytes = file.read()
+        mime_type = file.mimetype or "image/jpeg"
+        result = nutrition_agent.analyze_image(image_bytes, mime_type)
+        return jsonify({"analysis": result})
+    except Exception as exc:
+        logger.error("Image analysis error: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────
+# Routes — Export Meal Plan PDF
+# ─────────────────────────────────────────────────────────────────
+@app.route("/api/mealplan/<int:plan_id>/export-pdf", methods=["GET"])
+@login_required
+def export_meal_plan_pdf(plan_id):
+    plan_record = MealPlan.query.filter_by(id=plan_id, user_id=current_user.id).first()
+    if not plan_record:
+        return jsonify({"error": "Meal plan not found"}), 404
+
+    pdf_buffer = generate_meal_plan_pdf("7-Day Nutrition Plan", plan_record.plan_text, current_user.name)
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=f"NutriBot_MealPlan_{plan_id}.pdf",
+        mimetype="application/pdf"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# Routes — Daily Food Intake Tracker
+# ─────────────────────────────────────────────────────────────────
+@app.route("/api/tracker/log", methods=["POST"])
+@login_required
+def log_meal():
+    data = request.get_json(silent=True) or {}
+    meal_name = data.get("meal_name", "").strip()
+    if not meal_name:
+        return jsonify({"error": "Meal name is required"}), 400
+
+    log = DailyLog(
+        user_id=current_user.id,
+        date=data.get("date", datetime.utcnow().strftime("%Y-%m-%d")),
+        meal_type=data.get("meal_type", "snack"),
+        meal_name=meal_name,
+        calories=int(data.get("calories", 0)),
+        protein_g=float(data.get("protein_g", 0.0)),
+        carbs_g=float(data.get("carbs_g", 0.0)),
+        fat_g=float(data.get("fat_g", 0.0))
+    )
+    db.session.add(log)
+    db.session.commit()
+    return jsonify({"status": "success", "log_id": log.id})
+
+
+@app.route("/api/tracker/daily", methods=["GET"])
+@login_required
+def get_daily_tracker():
+    date_str = request.args.get("date", datetime.utcnow().strftime("%Y-%m-%d"))
+    logs = DailyLog.query.filter_by(user_id=current_user.id, date=date_str).all()
+
+    total_cal = sum(l.calories for l in logs)
+    total_protein = sum(l.protein_g for l in logs)
+    total_carbs = sum(l.carbs_g for l in logs)
+    total_fat = sum(l.fat_g for l in logs)
+
+    return jsonify({
+        "date": date_str,
+        "total_calories": total_cal,
+        "total_protein": round(total_protein, 1),
+        "total_carbs": round(total_carbs, 1),
+        "total_fat": round(total_fat, 1),
+        "items": [{
+            "id": l.id,
+            "meal_type": l.meal_type,
+            "meal_name": l.meal_name,
+            "calories": l.calories,
+            "protein_g": l.protein_g,
+            "carbs_g": l.carbs_g,
+            "fat_g": l.fat_g,
+        } for l in logs]
+    })
+
+
+# ─────────────────────────────────────────────────────────────────
+# Routes — Billing & Payments (Stripe)
+# ─────────────────────────────────────────────────────────────────
+@app.route("/api/billing/checkout", methods=["POST"])
+@login_required
+def billing_checkout():
+    data = request.get_json(silent=True) or {}
+    plan_type = data.get("plan", "pro")
+    
+    success_url = url_for("account", _external=True) + "?session_id={CHECKOUT_SESSION_ID}"
+    cancel_url = url_for("pricing", _external=True)
+
+    result = billing.create_checkout_session(current_user, plan_type, success_url, cancel_url)
+    return jsonify(result)
+
+
+@app.route("/api/billing/portal", methods=["POST"])
+@login_required
+def billing_portal():
+    return_url = url_for("account", _external=True)
+    result = billing.create_customer_portal_session(current_user, return_url)
+    return jsonify(result)
+
+
+@app.route("/api/billing/webhook", methods=["POST"])
+def billing_webhook():
+    payload = request.get_data()
+    sig_header = request.headers.get("Stripe-Signature", "")
+    return billing.handle_stripe_webhook(payload, sig_header)
+
+
+# ─────────────────────────────────────────────────────────────────
+# Admin Portal
+# ─────────────────────────────────────────────────────────────────
 @app.route("/admin")
 @login_required
 def admin_dashboard():
-    if current_user.email != ADMIN_EMAIL:
+    if current_user.email != ADMIN_EMAIL and not current_user.is_admin:
         return "Not Found", 404
 
     users = User.query.order_by(User.created_at.desc()).all()
+    
+    pro_users = sum(1 for u in users if u.plan == 'pro')
+    family_users = sum(1 for u in users if u.plan == 'family')
+    total_mrr = (pro_users * 19) + (family_users * 39)
 
     return render_template(
         "admin.html",
         users=users,
-        admin=current_user
-   
+        admin=current_user,
+        total_mrr=total_mrr,
+        pro_count=pro_users,
+        family_count=family_users
     )
+
+
+@app.route("/admin/user/<int:user_id>/update-plan", methods=["POST"])
+@login_required
+def admin_update_user_plan(user_id):
+    if current_user.email != ADMIN_EMAIL and not current_user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    new_plan = data.get("plan")
+    if new_plan in ["free", "pro", "family"]:
+        user.plan = new_plan
+        user.subscription_status = "active" if new_plan != "free" else "inactive"
+        db.session.commit()
+        return jsonify({"status": "success", "new_plan": new_plan})
+
+    return jsonify({"error": "Invalid plan"}), 400
+
 
 # ─────────────────────────────────────────────────────────────────
 # Entry point

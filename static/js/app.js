@@ -324,7 +324,16 @@ async function generateMealPlan() {
     if (data.error) {
       resultEl.innerHTML = `<p class="text-danger">${data.error}</p>`;
     } else {
-      resultEl.innerHTML = `<div class="plan-rendered">${formatMarkdown(data.meal_plan)}</div>`;
+      resultEl.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+          <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">✅ Meal Plan Ready</span>
+          <a href="/account" class="btn btn-sm btn-outline-primary rounded-3">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF from Account
+          </a>
+        </div>
+        <div class="plan-rendered">${formatMarkdown(data.meal_plan)}</div>
+      `;
+      loadUsageBar();
     }
   } catch (err) {
     hideLoading();
@@ -599,3 +608,43 @@ async function loadChatHistoryFromDB() {
     chatWindow.scrollTop = chatWindow.scrollHeight;
   } catch (_) {}
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Food Photo Scanner (Multimodal AI)
+// ─────────────────────────────────────────────────────────────────
+async function uploadFoodPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  
+  // Display preview message in chat window
+  const chatWindow = document.getElementById("chatWindow");
+  const welcome = chatWindow.querySelector(".chat-welcome");
+  if (welcome) welcome.remove();
+
+  appendMessage("user", `📸 Uploaded food photo: <i>${file.name}</i>`);
+  showTyping(true);
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  try {
+    const res = await fetch("/api/nutrition/analyze-image", {
+      method: "POST",
+      body: formData,
+    });
+    showTyping(false);
+    const data = await res.json();
+    if (res.ok) {
+      appendMessage("bot", data.analysis);
+      loadUsageBar();
+    } else {
+      appendMessage("bot", `⚠️ Image Analysis Error: ${data.error || "Failed to process photo."}`);
+    }
+  } catch (err) {
+    showTyping(false);
+    appendMessage("bot", "⚠️ Network error trying to analyze photo.");
+  } finally {
+    input.value = "";
+  }
+}
+

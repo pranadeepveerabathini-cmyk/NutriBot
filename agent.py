@@ -182,6 +182,50 @@ class NutritionAgent:
     def analyze(self, prompt: str) -> str:
         return self._generate(f"### Task: {prompt}\n### NutriBot:")
 
+    def analyze_image(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+        """
+        Multimodal Food Scanner — Analyzes food photos using Gemini 1.5 Flash.
+        """
+        gemini = self._get_gemini()
+        if gemini:
+            try:
+                from google.genai import types
+                part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+                prompt = (
+                    "You are NutriBot Food Scanner. Analyze this food image in detail:\n"
+                    "1. Identified food items & estimated portion sizes\n"
+                    "2. Total estimated Calories (kcal)\n"
+                    "3. Macro breakdown (Protein g, Carbs g, Fat g, Fiber g)\n"
+                    "4. Health rating & actionable advice/modifications\n"
+                    "Provide output with clean bold markdown sections and bullet points."
+                )
+                response = gemini.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=[AGENT_INSTRUCTIONS + "\n\n" + prompt, part],
+                )
+                return response.text.strip()
+            except Exception as e:
+                logger.warning("Gemini Vision failed: %s", e)
+
+        # Demo response fallback
+        return (
+            "### 📸 NutriBot Food Scanner (Analysis)\n\n"
+            "**Identified Items:**\n"
+            "- Paneer Butter Masala (1 bowl, ~200g)\n"
+            "- Garlic Naan (2 pieces)\n"
+            "- Cucumber & Onion Salad\n\n"
+            "**Nutritional Breakdown:**\n"
+            "- ⚡ **Calories:** ~720 kcal\n"
+            "- 🥩 **Protein:** 24g\n"
+            "- 🌾 **Carbohydrates:** 68g\n"
+            "- 🥑 **Fat:** 38g\n"
+            "- 🥗 **Fiber:** 6g\n\n"
+            "**NutriBot Insights:**\n"
+            "- ✅ Great source of protein from paneer.\n"
+            "- ⚠️ High saturated fat from butter & cream. Consider opting for tandoori roti instead of garlic butter naan for a lower calorie deficit.\n\n"
+            "⚠️ Add `GEMINI_API_KEY` to `.env` for real-time AI image scanning."
+        )
+
     def generate_plan(self, prompt: str) -> str:
         return self._generate(
             f"### Generate a detailed plan for: {prompt}\n"

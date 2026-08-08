@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to NutriBot — Personalise Your Journey</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      background: #090d16;
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .onboard-card {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      max-width: 680px;
+      width: 100%;
+      padding: 2.5rem;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .progress-bar-glow {
+      height: 8px;
+      background: linear-gradient(90deg, #2563eb, #7c3aed);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .option-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 1.2rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .option-card:hover, .option-card.selected {
+      border-color: #3b82f6;
+      background: rgba(37, 99, 235, 0.15);
+      transform: translateY(-2px);
+    }
+    .step-section {
+      display: none;
+    }
+    .step-section.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="onboard-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="d-flex align-items-center gap-2">
+        <span style="font-size: 1.8rem;">🥗</span>
+        <h4 class="m-0 fw-bold bg-gradient-text">NutriBot Setup</h4>
+      </div>
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2" id="stepIndicator">Step 1 of 4</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="bg-secondary bg-opacity-25 rounded-4 mb-4" style="height: 8px; overflow: hidden;">
+      <div class="progress-bar-glow" id="progressBar" style="width: 25%;"></div>
+    </div>
+
+    <form id="onboardForm">
+
+      <!-- STEP 1: Goal -->
+      <div class="step-section active" id="step1">
+        <h3 class="fw-bold mb-2">What is your primary health goal?</h3>
+        <p class="text-secondary mb-4">NutriBot will tailor its daily advice and meal plans specifically for this objective.</p>
+        
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="option-card selected" onclick="selectOption(this, 'goal', 'Weight Loss & Fat Burn')">
+              <div class="fs-3 mb-2">🔥</div>
+              <h6 class="fw-bold m-0">Weight Loss</h6>
+              <small class="text-secondary">Sustainable calorie deficit</small>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="option-card" onclick="selectOption(this, 'goal', 'Muscle Building & Strength')">
+              <div class="fs-3 mb-2">💪</div>
+              <h6 class="fw-bold m-0">Muscle Building</h6>
+              <small class="text-secondary">High protein surplus</small>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="option-card" onclick="selectOption(this, 'goal', 'Diabetes / PCOS Management')">
+              <div class="fs-3 mb-2">🩺</div>
+              <h6 class="fw-bold m-0">Medical / PCOS / Diabetes</h6>
+              <small class="text-secondary">Low GI & hormone balance</small>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="option-card" onclick="selectOption(this, 'goal', 'Healthy Maintenance & Energy')">
+              <div class="fs-3 mb-2">🌿</div>
+              <h6 class="fw-bold m-0">General Maintenance</h6>
+              <small class="text-secondary">Balanced energy & gut health</small>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" name="goal" id="goalInput" value="Weight Loss & Fat Burn">
+      </div>
+
+      <!-- STEP 2: Biometrics -->
+      <div class="step-section" id="step2">
+        <h3 class="fw-bold mb-2">Your Biometrics</h3>
+        <p class="text-secondary mb-4">We use these to calculate your Basal Metabolic Rate (BMR) and recommended daily calories.</p>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label text-secondary small">Age</label>
+            <input type="number" name="age" class="form-control bg-dark border-secondary text-white py-2" value="28" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-secondary small">Gender</label>
+            <select name="gender" class="form-select bg-dark border-secondary text-white py-2">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-secondary small">Height (cm)</label>
+            <input type="number" name="height_cm" class="form-control bg-dark border-secondary text-white py-2" value="172" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-secondary small">Weight (kg)</label>
+            <input type="number" name="weight_kg" class="form-control bg-dark border-secondary text-white py-2" value="70" step="0.1" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Diet & Cuisine -->
+      <div class="step-section" id="step3">
+        <h3 class="fw-bold mb-2">Dietary Preferences</h3>
+        <p class="text-secondary mb-4">Select your lifestyle preferences and preferred cuisine style.</p>
+
+        <label class="form-label text-secondary small">Diet Type</label>
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-md-4">
+            <div class="option-card text-center py-2 selected" onclick="selectOption(this, 'diet', 'Vegetarian')">
+              <small class="fw-bold">🥗 Vegetarian</small>
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="option-card text-center py-2" onclick="selectOption(this, 'diet', 'Non-Vegetarian')">
+              <small class="fw-bold">🍗 Non-Veg</small>
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="option-card text-center py-2" onclick="selectOption(this, 'diet', 'Eggetarian')">
+              <small class="fw-bold">🍳 Eggetarian</small>
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="option-card text-center py-2" onclick="selectOption(this, 'diet', 'Vegan')">
+              <small class="fw-bold">🌱 Vegan</small>
+            </div>
+          </div>
+          <div class="col-6 col-md-4">
+            <div class="option-card text-center py-2" onclick="selectOption(this, 'diet', 'Keto / Low-Carb')">
+              <small class="fw-bold">🥑 Keto</small>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" name="diet" id="dietInput" value="Vegetarian">
+
+        <label class="form-label text-secondary small">Preferred Regional Cuisine</label>
+        <select name="cuisine" class="form-select bg-dark border-secondary text-white py-2">
+          <option value="North Indian">North Indian (Roti, Dal, Sabzi, Paneer)</option>
+          <option value="South Indian">South Indian (Idli, Dosa, Sambhar, Rice)</option>
+          <option value="Pan-Indian Balanced">Pan-Indian Balanced Mix</option>
+          <option value="Continental / Western">Continental / Western</option>
+        </select>
+      </div>
+
+      <!-- STEP 4: Confirmation & Recommendations -->
+      <div class="step-section" id="step4">
+        <div class="text-center py-3">
+          <div class="fs-1 mb-2">🎉</div>
+          <h3 class="fw-bold mb-2">You're All Set!</h3>
+          <p class="text-secondary mb-4">Your personalized AI profile is ready. NutriBot is configured to support your health journey.</p>
+          
+          <div class="p-3 bg-dark border border-secondary rounded-3 text-start mb-4">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-secondary">Estimated Daily Maintenance (TDEE):</span>
+              <span class="fw-bold text-success" id="calcTDEE">~2,150 kcal</span>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span class="text-secondary">Target Daily Intake:</span>
+              <span class="fw-bold text-primary" id="calcTarget">~1,750 kcal/day</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation buttons -->
+      <div class="d-flex justify-content-between mt-4">
+        <button type="button" class="btn btn-outline-secondary px-4 rounded-3" id="prevBtn" onclick="changeStep(-1)" style="visibility: hidden;">Back</button>
+        <button type="button" class="btn btn-primary px-4 rounded-3 fw-semibold" id="nextBtn" onclick="changeStep(1)">Next Step</button>
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+    let currentStep = 1;
+    const totalSteps = 4;
+
+    function selectOption(el, inputName, val) {
+      const parent = el.closest('.row');
+      parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      document.getElementById(inputName + 'Input').value = val;
+    }
+
+    function changeStep(delta) {
+      document.getElementById(`step${currentStep}`).classList.remove('active');
+      currentStep += delta;
+
+      if (currentStep > totalSteps) {
+        submitOnboarding();
+        return;
+      }
+
+      document.getElementById(`step${currentStep}`).classList.add('active');
+      
+      // Update indicators
+      document.getElementById('stepIndicator').innerText = `Step ${currentStep} of ${totalSteps}`;
+      document.getElementById('progressBar').style.width = `${(currentStep / totalSteps) * 100}%`;
+      document.getElementById('prevBtn').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+      
+      if (currentStep === totalSteps) {
+        document.getElementById('nextBtn').innerText = 'Complete & Launch NutriBot';
+        calculateMetrics();
+      } else {
+        document.getElementById('nextBtn').innerText = 'Next Step';
+      }
+    }
+
+    function calculateMetrics() {
+      const weight = parseFloat(document.querySelector('[name="weight_kg"]').value) || 70;
+      const height = parseFloat(document.querySelector('[name="height_cm"]').value) || 170;
+      const age = parseInt(document.querySelector('[name="age"]').value) || 28;
+      
+      // Mifflin-St Jeor BMR
+      let bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+      let tdee = Math.round(bmr * 1.375);
+      let target = tdee - 400;
+
+      document.getElementById('calcTDEE').innerText = `~${tdee} kcal`;
+      document.getElementById('calcTarget').innerText = `~${target} kcal/day`;
+    }
+
+    async function submitOnboarding() {
+      const form = document.getElementById('onboardForm');
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+        const res = await fetch('/api/onboarding/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (res.ok) {
+          window.location.href = '/app';
+        } else {
+          alert(json.error || 'Failed to save onboarding.');
+        }
+      } catch(err) {
+        console.error(err);
+        window.location.href = '/app';
+      }
+    }
+  </script>
+</body>
+</html>
